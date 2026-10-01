@@ -46,3 +46,11 @@ npm run build
 ```sh
 npm run lint
 ```
+
+## GitHub Pages
+
+The site is published at https://morilikus.github.io/Mathe_Website/ by the GitHub Actions workflow in `.github/workflows/deploy.yml`.
+
+In the GitHub repository, open **Settings > Pages** and set the build and deployment source to **GitHub Actions**. Every push to `main` then builds and deploys the site automatically. The workflow installs dependencies and builds from the `Mathe_Website` project folder.
+
+The Vite base path is configured as `/Mathe_Website/` for this project site. If the repository is renamed, update the `base` value in `vite.config.ts` to match.
