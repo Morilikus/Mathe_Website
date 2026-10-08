@@ -1,9 +1,54 @@
 import { jsPDF } from 'jspdf'
-import { formatFraction, type MathProblem } from '../domain/math'
 import type { GeneratorSettings } from '../domain/generator'
+import type { MathProblem } from '../domain/math'
 
 const pdfSafe = (text: string) =>
   text.replaceAll('·', '*').replaceAll('−', '-').replaceAll('√', 'Wurzel aus ')
+
+const writeSolutionPage = (document: jsPDF, problems: MathProblem[], margin: number) => {
+  let y = 20
+  document.addPage()
+
+  document.setFont('helvetica', 'bold')
+  document.setFontSize(18)
+  document.text('Lösungswege', margin, y)
+  y += 12
+
+  problems.forEach((problem, index) => {
+    if (y > 260) {
+      document.addPage()
+      y = 20
+    }
+
+    document.setFont('helvetica', 'bold')
+    document.setFontSize(11)
+    document.text(`${index + 1}. ${pdfSafe(problem.display)} =`, margin, y)
+    y += 7
+
+    document.setFont('helvetica', 'normal')
+    document.setFontSize(10)
+    const steps =
+      problem.solution.length > 0
+        ? problem.solution
+        : [
+            {
+              expression: problem.display,
+              result: pdfSafe(String(problem.answer.numerator / problem.answer.denominator)),
+            },
+          ]
+
+    steps.forEach((step) => {
+      if (y > 285) {
+        document.addPage()
+        y = 20
+      }
+      document.text(`- ${pdfSafe(step.expression)} = ${pdfSafe(step.result)}`, margin + 6, y)
+      y += 7
+    })
+
+    y += 4
+  })
+}
 
 export const downloadWorksheetPdf = (
   problems: MathProblem[],
@@ -37,17 +82,15 @@ export const downloadWorksheetPdf = (
     }
     document.setFontSize(13)
     document.text(`${index + 1}.  ${pdfSafe(problem.display)} =`, margin, y)
-    if (withSolutions) {
-      document.setFontSize(10)
-      document.setTextColor(90, 99, 104)
-      document.text(`Lösung: ${pdfSafe(formatFraction(problem.answer))}`, margin + 6, y + 7)
-      y += 7
-      document.setTextColor(25, 35, 38)
-    } else {
+    if (!withSolutions) {
       document.line(margin + 62, y + 1, 90, y + 1)
     }
     y += 16
   })
+
+  if (withSolutions) {
+    writeSolutionPage(document, problems, margin)
+  }
 
   document.save(withSolutions ? 'mathewerkstatt-mit-loesungen.pdf' : 'mathewerkstatt-aufgaben.pdf')
 }
