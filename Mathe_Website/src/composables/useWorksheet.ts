@@ -20,6 +20,7 @@ export const useWorksheet = () => {
   const problems = ref<MathProblem[]>(generateProblems(settings.value))
   const answers = ref<Record<string, string>>({})
   const feedback = ref<Record<string, FeedbackState>>({})
+  const incorrectAttempts = ref<Record<string, number>>({})
   const showSolutions = ref(false)
   const generatedAt = ref(new Date())
   const checkedCount = computed(
@@ -53,11 +54,20 @@ export const useWorksheet = () => {
       feedback.value[problem.id] = 'empty'
       return
     }
-    feedback.value[problem.id] =
+
+    const isCorrect =
       parsed.numerator === problem.answer.numerator &&
       parsed.denominator === problem.answer.denominator
-        ? 'correct'
-        : 'incorrect'
+
+    if (isCorrect) {
+      feedback.value[problem.id] = 'correct'
+      incorrectAttempts.value[problem.id] = 0
+      return
+    }
+
+    const attempts = (incorrectAttempts.value[problem.id] ?? 0) + 1
+    incorrectAttempts.value[problem.id] = attempts
+    feedback.value[problem.id] = 'incorrect'
   }
 
   const generateWorksheet = () => {
@@ -65,6 +75,7 @@ export const useWorksheet = () => {
     problems.value = generateProblems(settings.value)
     answers.value = {}
     feedback.value = {}
+    incorrectAttempts.value = {}
     showSolutions.value = false
     generatedAt.value = new Date()
   }
@@ -72,8 +83,13 @@ export const useWorksheet = () => {
   const feedbackLabel = (problem: MathProblem) => {
     const state = feedback.value[problem.id]
     if (state === 'correct') return 'Richtig!'
-    if (state === 'incorrect')
-      return `Noch nicht. Die Lösung ist ${formatFraction(problem.answer)}.`
+    if (state === 'incorrect') {
+      const attempts = incorrectAttempts.value[problem.id] ?? 0
+      const remainingAttempts = 3 - attempts
+      if (remainingAttempts <= 0)
+        return `Noch nicht. Die Lösung ist ${formatFraction(problem.answer)}.`
+      return `Noch ${remainingAttempts} Versuch${remainingAttempts === 1 ? '' : 'e'}.`
+    }
     if (state === 'empty') return 'Gib zuerst eine gültige Zahl oder einen Bruch ein.'
     return ''
   }

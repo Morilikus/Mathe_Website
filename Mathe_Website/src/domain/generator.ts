@@ -233,23 +233,71 @@ const createSolution = (expression: Expression): SolutionStep[] => {
   return steps
 }
 
+const numberValue = (expression: Expression): number => {
+  if (expression.kind === 'number') return expression.value.numerator / expression.value.denominator
+  return evaluate(expression).numerator / evaluate(expression).denominator
+}
+
+const isNumberWithinDigits = (value: number, digits: number): boolean => {
+  const absoluteValue = Math.abs(value)
+  if (absoluteValue === 0) return true
+  return absoluteValue < 10 ** digits
+}
+
+const isExpressionWithinOperands = (
+  expression: Expression,
+  settings: GeneratorSettings,
+): boolean => {
+  if (expression.kind === 'number') {
+    const value = numberValue(expression)
+    if (settings.numberRangeMode === 'digits') return isNumberWithinDigits(value, settings.digits)
+    const minimum = Math.min(settings.minimum, settings.maximum)
+    const maximum = Math.max(settings.minimum, settings.maximum)
+    return value >= minimum && value <= maximum
+  }
+
+  if (expression.kind === 'operation') {
+    if (expression.left && !isExpressionWithinOperands(expression.left, settings)) return false
+    if (expression.right && !isExpressionWithinOperands(expression.right, settings)) return false
+    return true
+  }
+
+  return false
+}
+
 const createProblem = (settings: GeneratorSettings, index: number): MathProblem => {
   let expression = createExpression(settings)
   let answer = evaluate(expression)
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const solutionMinimum = Math.min(settings.solutionMinimum, settings.solutionMaximum)
     const solutionMaximum = Math.max(settings.solutionMinimum, settings.solutionMaximum)
-    const inSolutionRange =
-      answer.numerator / answer.denominator >= solutionMinimum &&
-      answer.numerator / answer.denominator <= solutionMaximum
+    const answerValue = answer.numerator / answer.denominator
+    const inSolutionRange = answerValue >= solutionMinimum && answerValue <= solutionMaximum
     const isValidInteger =
       settings.numberModes.length !== 1 ||
       settings.numberModes[0] !== 'integer' ||
       isInteger(answer)
-    if (inSolutionRange && isValidInteger) break
+    const hasValidOperands = isExpressionWithinOperands(expression, settings)
+    if (inSolutionRange && isValidInteger && hasValidOperands) break
     expression = createExpression(settings)
     answer = evaluate(expression)
   }
+
+  const answerValue = answer.numerator / answer.denominator
+  const solutionMinimum = Math.min(settings.solutionMinimum, settings.solutionMaximum)
+  const solutionMaximum = Math.max(settings.solutionMinimum, settings.solutionMaximum)
+  const isValidProblem =
+    answerValue >= solutionMinimum &&
+    answerValue <= solutionMaximum &&
+    isExpressionWithinOperands(expression, settings) &&
+    (settings.numberModes.length !== 1 ||
+      settings.numberModes[0] !== 'integer' ||
+      isInteger(answer))
+
+  if (!isValidProblem) {
+    throw new Error('Unable to generate a problem within the configured solution range.')
+  }
+
   return {
     id: `${Date.now()}-${index}-${randomUnit()}`,
     expression,
